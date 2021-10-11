@@ -9,7 +9,50 @@ const JWTSecret = "?#;Dn=:N-ZLa2INf[@bK3RQjt!iy9f|!9U1D+erUG6LwLmK+wN~L{Ecs>,f4T
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
-app.get("/games", (req, res) => { //Read all
+
+function auth(req, res, next) {//Middleware
+    const authToken = req.headers['authorization'];
+
+    if (authToken != undefined) {
+        const splitToken = authToken.split(' ');
+        var token = splitToken[1];
+        jwt.verify(token, JWTSecret, (err, data) => {
+
+            if (err) {
+                res.status(401);
+                res.json({ err: "Token inválido!" });
+            } else {
+                req.token = token;
+                req.authUser = { id: data.id, email: data.email };
+                next();
+            }
+        });
+
+    } else {
+        res.status(401);
+        res.json({ err: "Token inválido!" });
+    }
+
+}
+
+app.post('/game', auth, (req, res) => { //Create
+    var { title, price, year } = req.body
+    try {
+        const result = models.sequelize.transaction(transaction => {
+            models.game.create({
+                title,
+                price,
+                year
+            });
+        });
+        res.sendStatus(200);
+    } catch (err) {
+        res.sendStatus(404).json(err);
+    }
+});
+
+app.get("/games", auth, (req, res) => { //Read all
+
     try {
         const result = models.sequelize.transaction(transaction => {
             res.status(200);
@@ -24,7 +67,7 @@ app.get("/games", (req, res) => { //Read all
     }
 });
 
-app.get("/game/:id", (req, res) => { //Read unic
+app.get("/game/:id", auth, (req, res) => { //Read unic
     try {
         const result = models.sequelize.transaction(transaction => {
             if (isNaN(req.params.id)) {
@@ -49,48 +92,7 @@ app.get("/game/:id", (req, res) => { //Read unic
 
 });
 
-app.post('/game', (req, res) => { //Create
-    var { title, price, year } = req.body
-    try {
-        const result = models.sequelize.transaction(transaction => {
-            models.game.create({
-                title,
-                price,
-                year
-            });
-        });
-        res.sendStatus(200);
-    } catch (err) {
-        res.sendStatus(404).json(err);
-    }
-});
-
-app.delete('/game/:id', (req, res) => { //Delete
-    try {
-        const result = models.sequelize.transaction(transaction => {
-            if (isNaN(req.params.id)) {
-                res.sendStatus(400);
-            } else {
-                var id = parseInt(req.params.id);
-
-                models.game.findByPk(id).then((game) => {
-                    if (game !== null) {
-                        game.destroy();
-                        res.sendStatus(200);
-                    } else {
-                        res.sendStatus(404);
-                    }
-                }).catch((errors) => {
-                    res.sendStatus(404).json(errors);
-                });
-            }
-        });
-    } catch (err) {
-        res.sendStatus(404).json(err);
-    }
-});
-
-app.put('/game/:id', (req, res) => {//Edit
+app.put('/game/:id', auth, (req, res) => {//Update
     try {
         const result = models.sequelize.transaction(transaction => {
             if (isNaN(req.params.id)) {
@@ -131,7 +133,32 @@ app.put('/game/:id', (req, res) => {//Edit
     }
 });
 
-app.post('/auth', (req, res) => { //Auth and generate JWT
+app.delete('/game/:id', auth, (req, res) => { //Delete
+    try {
+        const result = models.sequelize.transaction(transaction => {
+            if (isNaN(req.params.id)) {
+                res.sendStatus(400);
+            } else {
+                var id = parseInt(req.params.id);
+
+                models.game.findByPk(id).then((game) => {
+                    if (game !== null) {
+                        game.destroy();
+                        res.sendStatus(200);
+                    } else {
+                        res.sendStatus(404);
+                    }
+                }).catch((errors) => {
+                    res.sendStatus(404).json(errors);
+                });
+            }
+        });
+    } catch (err) {
+        res.sendStatus(404).json(err);
+    }
+});
+
+app.post('/auth', auth, (req, res) => { //Auth and generate JWT
     var { email, password } = req.body;
     if (email != undefined) {
         models.user.findOne({ where: { email: email } }).then((user) => {
@@ -163,3 +190,4 @@ app.post('/auth', (req, res) => { //Auth and generate JWT
 app.listen(4000, function () {//Start server
     console.log("API Work");
 });
+
