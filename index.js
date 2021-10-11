@@ -158,7 +158,7 @@ app.delete('/game/:id', auth, (req, res) => { //Delete
     }
 });
 
-app.post('/auth', auth, (req, res) => { //Auth and generate JWT
+app.post('/auth', (req, res) => { //Auth and generate JWT
     var { email, password } = req.body;
     if (email != undefined) {
         models.user.findOne({ where: { email: email } }).then((user) => {
