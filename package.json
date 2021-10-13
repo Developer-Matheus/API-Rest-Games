@@ -15,9 +15,11 @@
   "homepage": "https://bitbucket.org/Pretheus/api-rest#readme",
   "dependencies": {
     "bcrypt": "^5.0.1",
+    "dotenv": "^10.0.0",
     "express": "^4.17.1",
     "jsonwebtoken": "^8.5.1",
     "mysql2": "^2.3.0",
+    "npm-audit-resolver": "^2.3.1",
     "sequelize": "^6.7.0"
   },
   "devDependencies": {

@@ -1,14 +1,17 @@
+require('dotenv').config();
 const { response } = require('express');
 const express = require('express');
 const models = require('./models/index');
 const app = express();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const JWTSecret = "?#;Dn=:N-ZLa2INf[@bK3RQjt!iy9f|!9U1D+erUG6LwLmK+wN~L{Ecs>,f4TJA";
+const JWTSecret = process.env.JWT_SECRET_KEY;
+const uri = process.env.APP_URL
+const port = process.env.PORT
 
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
-
+app.set('port', process.env.APP_PORT);
 
 function auth(req, res, next) {//Middleware
     const authToken = req.headers['authorization'];
@@ -35,6 +38,43 @@ function auth(req, res, next) {//Middleware
 
 }
 
+function links(id = 1) {//HATEOAS Links
+    var links = [
+        {
+            href: uri + "game",
+            method: "POST",
+            rel: "create_game"
+        },
+        {
+            href: uri + "games",
+            method: "GET",
+            rel: "get_all_games"
+        },
+        {
+            href: uri + "game/" + id,
+            method: "GET",
+            rel: "get_game"
+        },
+        {
+            href: uri + "game/" + id,
+            method: "PUT",
+            rel: "edit_game"
+        },
+        {
+            href: uri + "game/" + id,
+            method: "DELETE",
+            rel: "delete_game"
+        },
+        {
+            href: uri + "auth",
+            method: "POST",
+            rel: "login"
+        },
+    ];
+
+    return links
+}
+
 app.post('/game', auth, (req, res) => { //Create
     var { title, price, year } = req.body
     try {
@@ -43,9 +83,11 @@ app.post('/game', auth, (req, res) => { //Create
                 title,
                 price,
                 year
+            }).then((game) => {
+                res.status(200);
+                res.json({ game: game, _links: links(game.id) });
             });
         });
-        res.sendStatus(200);
     } catch (err) {
         res.sendStatus(404).json(err);
     }
@@ -57,7 +99,8 @@ app.get("/games", auth, (req, res) => { //Read all
         const result = models.sequelize.transaction(transaction => {
             res.status(200);
             models.game.findAll().then((games) => {
-                res.json(games);
+                res.status(200);
+                res.json({ games: games, _links: links() });
             }).catch((errors) => {
                 res.sendStatus(404).json(errors);
             });
@@ -77,7 +120,7 @@ app.get("/game/:id", auth, (req, res) => { //Read unic
                 models.game.findByPk(id).then((game) => {
                     if (game !== null) {
                         res.status(200);
-                        res.json(game);
+                        res.json({ game: game, _links: links(id) });
                     } else {
                         res.sendStatus(404);
                     }
@@ -119,7 +162,8 @@ app.put('/game/:id', auth, (req, res) => {//Update
                                 year
                             });
                         }
-                        res.sendStatus(200);
+                        res.status(200);
+                        res.json({ game: game, _links: links(id) });
                     } else {
                         res.sendStatus(404);
                     }
@@ -144,7 +188,8 @@ app.delete('/game/:id', auth, (req, res) => { //Delete
                 models.game.findByPk(id).then((game) => {
                     if (game !== null) {
                         game.destroy();
-                        res.sendStatus(200);
+                        res.status(200);
+                        res.json({ deleted_id: id, _links: links(id) });
                     } else {
                         res.sendStatus(404);
                     }
@@ -170,7 +215,7 @@ app.post('/auth', (req, res) => { //Auth and generate JWT
                         res.json({ err: "Falha interna." });
                     } else {
                         res.status(200);
-                        res.json({ token: token });
+                        res.json({ token: token, _links: links() });
                     }
                 });
             } else {
@@ -187,7 +232,7 @@ app.post('/auth', (req, res) => { //Auth and generate JWT
     }
 });
 
-app.listen(4000, function () {//Start server
+app.listen(app.get('port'), function () {//Start server
     console.log("API Work");
 });
 
